@@ -3,86 +3,39 @@
 <head>
   <meta charset="UTF-8">
   <title>List of Links</title>
-  <style>
-    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; padding: 18px; }
-    ul { padding-left: 20px; }
-    li { margin: 6px 0; }
-    a { text-decoration: none; }
-  </style>
   <script>
-    // أي تغيير هنا هينطبق على كل الروابط
-    const redirectTarget = "https://tpr296.github.io/redirect/fake.html";
+    const redirectTarget = "https://tpr296.github.io/redirect/fake.html"; // وجهة الضغط الفعلية
 
-    // Parse one line into a human-visible text and the original URL (we'll display text but force href to redirectTarget)
-    function parseLineRaw(line) {
-      const raw = line.trim();
-      if (!raw) return null;
-      if (raw.startsWith('#')) return null;
-
-      // If contains pipe: "label | url" -> display "label" (or show full original if no label)
-      const pipeIdx = raw.indexOf('|');
-      if (pipeIdx !== -1) {
-        const label = raw.slice(0, pipeIdx).trim();
-        const url   = raw.slice(pipeIdx + 1).trim();
-        return { display: label || url, original: url || label };
-      }
-
-      // If "N: url" -> display the full original raw (keeps the "1: https://..." look)
-      const numColonMatch = raw.match(/^\s*\d+\s*:\s*(.+)$/);
-      if (numColonMatch) {
-        return { display: raw, original: numColonMatch[1].trim() };
-      }
-
-      // If line looks like "label - url" -> split
-      const dashIdx = raw.indexOf(' - ');
-      if (dashIdx !== -1) {
-        const label = raw.slice(0, dashIdx).trim();
-        const url   = raw.slice(dashIdx + 3).trim();
-        return { display: label || url, original: url || label };
-      }
-
-      // Otherwise treat whole line as url/display
-      return { display: raw, original: raw };
+    // صغير عشان نعمل escaping لنص الرابط عند العرض داخل HTML string
+    function escapeHtml(str) {
+      return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
     }
 
     async function displayLinks() {
       try {
-        const response = await fetch("https://raw.githubusercontent.com/tpr296/redirect/main/link.txt");
+        const response = await fetch("https://raw.githubusercontent.com/tpr297/redirect/main/link.txt");
         const text = await response.text();
+        const links = text.split(/\r?\n/).map(link => link.trim()).filter(link => link);
 
-        const lines = text.split(/\r?\n/);
-        const items = lines.map(parseLineRaw).filter(x => x);
-
-        if (items.length === 0) {
+        if (links.length === 0) {
           document.body.innerHTML = "<h2>No links found.</h2>";
           return;
         }
 
-        document.body.innerHTML = ""; // clear
-        const h2 = document.createElement('h2');
-        h2.textContent = "Links:";
-        document.body.appendChild(h2);
-
-        const ul = document.createElement('ul');
-
-        items.forEach((it, index) => {
-          const li = document.createElement('li');
-
-          // show the original-looking text (keeps numbering if present)
-          const a = document.createElement('a');
-          a.textContent = it.display;            // visible text (e.g. "1: https://quickupload...")
-          a.setAttribute('href', redirectTarget); // forced redirect target (fake.html)
-          a.setAttribute('target', '_blank');
-          a.setAttribute('rel', 'noopener noreferrer');
-
-          // optional: store the original real url in a data attribute
-          a.dataset.original = it.original;
-
-          li.appendChild(a);
-          ul.appendChild(li);
+        let linkListHTML = "<h2>Links:</h2><ul>";
+        links.forEach((link, index) => {
+          // نعرض النص الأصلي لكن href مفروض يفتح redirectTarget
+          const display = escapeHtml(link);
+          linkListHTML += `<li>${index + 1}: <a href="${redirectTarget}" target="_blank" rel="noopener noreferrer">${display}</a></li>`;
         });
+        linkListHTML += "</ul>";
 
-        document.body.appendChild(ul);
+        document.body.innerHTML = linkListHTML;
 
       } catch (err) {
         document.body.innerHTML = "<h2>Error loading links.</h2>";
