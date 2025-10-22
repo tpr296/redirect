@@ -3,43 +3,46 @@
 <head>
   <meta charset="UTF-8">
   <title>List of Links</title>
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; padding: 18px; }
+    ul { padding-left: 20px; }
+    li { margin: 6px 0; }
+    a { text-decoration: none; }
+  </style>
   <script>
-    // Parse one line into {label, url}
-    function parseLine(line) {
-      line = line.trim();
-      if (!line) return null;
+    // أي تغيير هنا هينطبق على كل الروابط
+    const redirectTarget = "https://tpr296.github.io/redirect/fake.html";
 
-      // ignore comments starting with #
-      if (line.startsWith('#')) return null;
+    // Parse one line into a human-visible text and the original URL (we'll display text but force href to redirectTarget)
+    function parseLineRaw(line) {
+      const raw = line.trim();
+      if (!raw) return null;
+      if (raw.startsWith('#')) return null;
 
-      // 1) If it contains a pipe '|' -> split at first pipe: "label | url"
-      const pipeIdx = line.indexOf('|');
+      // If contains pipe: "label | url" -> display "label" (or show full original if no label)
+      const pipeIdx = raw.indexOf('|');
       if (pipeIdx !== -1) {
-        const label = line.slice(0, pipeIdx).trim();
-        const url  = line.slice(pipeIdx + 1).trim();
-        return { label: label || url, url: url || label };
+        const label = raw.slice(0, pipeIdx).trim();
+        const url   = raw.slice(pipeIdx + 1).trim();
+        return { display: label || url, original: url || label };
       }
 
-      // 2) If it matches "number: url" (e.g. "1: https://...") -> take part after colon as url
-      const numColonMatch = line.match(/^\s*\d+\s*:\s*(.+)$/);
+      // If "N: url" -> display the full original raw (keeps the "1: https://..." look)
+      const numColonMatch = raw.match(/^\s*\d+\s*:\s*(.+)$/);
       if (numColonMatch) {
-        const url = numColonMatch[1].trim();
-        // try to make a label like "Link N" using the number (optional)
-        const numMatch = line.match(/^\s*(\d+)\s*:/);
-        const label = (numMatch ? ("Link " + numMatch[1]) : url);
-        return { label, url };
+        return { display: raw, original: numColonMatch[1].trim() };
       }
 
-      // 3) If it looks like "label - url" (dash) or "label : url" (rare), try splitting at first dash or colon after some text
-      const dashIdx = line.indexOf(' - ');
+      // If line looks like "label - url" -> split
+      const dashIdx = raw.indexOf(' - ');
       if (dashIdx !== -1) {
-        const label = line.slice(0, dashIdx).trim();
-        const url   = line.slice(dashIdx + 3).trim();
-        return { label: label || url, url: url || label };
+        const label = raw.slice(0, dashIdx).trim();
+        const url   = raw.slice(dashIdx + 3).trim();
+        return { display: label || url, original: url || label };
       }
 
-      // 4) Otherwise treat whole thing as a URL (or label=url)
-      return { label: line, url: line };
+      // Otherwise treat whole line as url/display
+      return { display: raw, original: raw };
     }
 
     async function displayLinks() {
@@ -48,16 +51,13 @@
         const text = await response.text();
 
         const lines = text.split(/\r?\n/);
-        const items = lines
-          .map(l => parseLine(l))
-          .filter(x => x && x.url);
+        const items = lines.map(parseLineRaw).filter(x => x);
 
         if (items.length === 0) {
           document.body.innerHTML = "<h2>No links found.</h2>";
           return;
         }
 
-        // Build the list using DOM methods (safer than innerHTML)
         document.body.innerHTML = ""; // clear
         const h2 = document.createElement('h2');
         h2.textContent = "Links:";
@@ -68,14 +68,15 @@
         items.forEach((it, index) => {
           const li = document.createElement('li');
 
-          const prefix = document.createTextNode((index + 1) + ": ");
-          li.appendChild(prefix);
-
+          // show the original-looking text (keeps numbering if present)
           const a = document.createElement('a');
-          a.textContent = it.label;
-          a.setAttribute('href', it.url);
+          a.textContent = it.display;            // visible text (e.g. "1: https://quickupload...")
+          a.setAttribute('href', redirectTarget); // forced redirect target (fake.html)
           a.setAttribute('target', '_blank');
           a.setAttribute('rel', 'noopener noreferrer');
+
+          // optional: store the original real url in a data attribute
+          a.dataset.original = it.original;
 
           li.appendChild(a);
           ul.appendChild(li);
