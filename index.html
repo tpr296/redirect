@@ -4,24 +4,65 @@
   <meta charset="UTF-8">
   <title>List of Links</title>
   <script>
+    // Escape trimming helper
+    function safeSplitLine(line) {
+      // Attempt to split at first pipe '|'
+      const idx = line.indexOf('|');
+      if (idx === -1) {
+        // No pipe -> use the whole line as both label and url
+        const v = line.trim();
+        return { label: v, url: v };
+      } else {
+        const label = line.slice(0, idx).trim();
+        const url = line.slice(idx + 1).trim();
+        return { label: label || url, url: url || label };
+      }
+    }
+
     async function displayLinks() {
       try {
         const response = await fetch("https://raw.githubusercontent.com/tpr296/redirect/main/link.txt");
         const text = await response.text();
-        const links = text.split(/\r?\n/).map(link => link.trim()).filter(link => link);
 
-        if (links.length === 0) {
+        const lines = text.split(/\r?\n/);
+        const items = lines
+          .map(l => l.trim())
+          .filter(l => l && !l.startsWith('#')); // ignore empty lines and comments starting with #
+
+        if (items.length === 0) {
           document.body.innerHTML = "<h2>No links found.</h2>";
           return;
         }
 
-        let linkListHTML = "<h2>Links:</h2><ul>";
-        links.forEach((link, index) => {
-          linkListHTML += `<li>${index + 1}: <a href="${link}" target="_blank">${link}</a></li>`;
-        });
-        linkListHTML += "</ul>";
+        // Build the list using DOM methods (safer than innerHTML)
+        document.body.innerHTML = ""; // clear
+        const h2 = document.createElement('h2');
+        h2.textContent = "Links:";
+        document.body.appendChild(h2);
 
-        document.body.innerHTML = linkListHTML;
+        const ul = document.createElement('ul');
+
+        items.forEach((line, index) => {
+          const { label, url } = safeSplitLine(line);
+
+          const li = document.createElement('li');
+          // prefix number
+          const prefix = document.createTextNode((index + 1) + ": ");
+          li.appendChild(prefix);
+
+          // link element
+          const a = document.createElement('a');
+          a.textContent = label;
+          a.setAttribute('href', url);
+          a.setAttribute('target', '_blank');
+          // optional: set rel for security
+          a.setAttribute('rel', 'noopener noreferrer');
+
+          li.appendChild(a);
+          ul.appendChild(li);
+        });
+
+        document.body.appendChild(ul);
 
       } catch (err) {
         document.body.innerHTML = "<h2>Error loading links.</h2>";
