@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>List of Links</title>
+  <script>
+    async function displayLinks() {
+      try {
+        const response = await fetch("https://raw.githubusercontent.com/tpr296/redirect/main/link.txt");
+        const text = await response.text();
+        const links = text.split(/\r?\n/).map(link => link.trim()).filter(link => link);
+
+        if (links.length === 0) {
+          document.body.innerHTML = "<h2>No links found.</h2>";
+          return;
+        }
+
+        let linkListHTML = "<h2>Links:</h2><ul>";
+        links.forEach((link, index) => {
+          linkListHTML += `<li>${index + 1}: <a href="${link}" target="_blank">${link}</a></li>`;
+        });
+        linkListHTML += "</ul>";
+
+        document.body.innerHTML = linkListHTML;
+
+      } catch (err) {
+        document.body.innerHTML = "<h2>Error loading links.</h2>";
+        console.error(err);
+      }
+    }
+
+    window.onload = displayLinks;
+  </script>
+</head>
+<body>
+  <p>Loading links...</p>
+</body>
+</html>
