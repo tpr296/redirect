@@ -4,19 +4,42 @@
   <meta charset="UTF-8">
   <title>List of Links</title>
   <script>
-    // Escape trimming helper
-    function safeSplitLine(line) {
-      // Attempt to split at first pipe '|'
-      const idx = line.indexOf('|');
-      if (idx === -1) {
-        // No pipe -> use the whole line as both label and url
-        const v = line.trim();
-        return { label: v, url: v };
-      } else {
-        const label = line.slice(0, idx).trim();
-        const url = line.slice(idx + 1).trim();
+    // Parse one line into {label, url}
+    function parseLine(line) {
+      line = line.trim();
+      if (!line) return null;
+
+      // ignore comments starting with #
+      if (line.startsWith('#')) return null;
+
+      // 1) If it contains a pipe '|' -> split at first pipe: "label | url"
+      const pipeIdx = line.indexOf('|');
+      if (pipeIdx !== -1) {
+        const label = line.slice(0, pipeIdx).trim();
+        const url  = line.slice(pipeIdx + 1).trim();
         return { label: label || url, url: url || label };
       }
+
+      // 2) If it matches "number: url" (e.g. "1: https://...") -> take part after colon as url
+      const numColonMatch = line.match(/^\s*\d+\s*:\s*(.+)$/);
+      if (numColonMatch) {
+        const url = numColonMatch[1].trim();
+        // try to make a label like "Link N" using the number (optional)
+        const numMatch = line.match(/^\s*(\d+)\s*:/);
+        const label = (numMatch ? ("Link " + numMatch[1]) : url);
+        return { label, url };
+      }
+
+      // 3) If it looks like "label - url" (dash) or "label : url" (rare), try splitting at first dash or colon after some text
+      const dashIdx = line.indexOf(' - ');
+      if (dashIdx !== -1) {
+        const label = line.slice(0, dashIdx).trim();
+        const url   = line.slice(dashIdx + 3).trim();
+        return { label: label || url, url: url || label };
+      }
+
+      // 4) Otherwise treat whole thing as a URL (or label=url)
+      return { label: line, url: line };
     }
 
     async function displayLinks() {
@@ -26,8 +49,8 @@
 
         const lines = text.split(/\r?\n/);
         const items = lines
-          .map(l => l.trim())
-          .filter(l => l && !l.startsWith('#')); // ignore empty lines and comments starting with #
+          .map(l => parseLine(l))
+          .filter(x => x && x.url);
 
         if (items.length === 0) {
           document.body.innerHTML = "<h2>No links found.</h2>";
@@ -42,20 +65,16 @@
 
         const ul = document.createElement('ul');
 
-        items.forEach((line, index) => {
-          const { label, url } = safeSplitLine(line);
-
+        items.forEach((it, index) => {
           const li = document.createElement('li');
-          // prefix number
+
           const prefix = document.createTextNode((index + 1) + ": ");
           li.appendChild(prefix);
 
-          // link element
           const a = document.createElement('a');
-          a.textContent = label;
-          a.setAttribute('href', url);
+          a.textContent = it.label;
+          a.setAttribute('href', it.url);
           a.setAttribute('target', '_blank');
-          // optional: set rel for security
           a.setAttribute('rel', 'noopener noreferrer');
 
           li.appendChild(a);
